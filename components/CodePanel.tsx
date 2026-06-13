@@ -25,7 +25,7 @@ import {
   ArrowUp,
   Wand2,
 } from "lucide-react";
-import { Button } from "@base-ui/react";
+import { Button } from "@/components/ui/button";
 import PricingModal from "./PricingModal";
 
 // ─── Placeholder ──────────────────────────────────────────────────────────────

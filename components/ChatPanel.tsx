@@ -6,7 +6,7 @@ import PricingModal from './PricingModal';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { ArrowUp, Loader2, Paperclip, Sparkles, Square, Wand2, X } from 'lucide-react';
-import { Button } from '@base-ui/react';
+import { Button } from "@/components/ui/button";
 import { useUser } from '@clerk/nextjs';
 import ReactMarkdown from "react-markdown";
 import { createClient } from "@supabase/supabase-js";
