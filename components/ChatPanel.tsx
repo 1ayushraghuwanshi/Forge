@@ -1,4 +1,5 @@
 "use client"
+import { useMemo } from 'react';
 import React, { KeyboardEvent, useEffect, useRef, useState } from 'react'
 import { Message, StatusStep } from "@/types/workspace"
 import { BlueTitle } from './resuable';
@@ -25,10 +26,12 @@ interface ChatPanelProps {
   appTitle: string | null;
 }
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-)
+const supabase = useMemo(() => 
+  createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+  ), []
+);
 
 export function ChatPanel({
  messages,
@@ -103,28 +106,35 @@ content: "I've built a **Todo ist app** with a clean dark theme. Here's what's i
     }
   };
 
-   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !file.type.startsWith("image/")) return;
-    setIsUploading(true);
-    try {
-      const ext = file.name.split(".").pop();
-      const path = `${userId}/${workspaceId ?? "new"}/${Date.now()}.${ext}`;
-      const { error } = await supabase.storage
-        .from("image-workspace")
-        .upload(path, file, { upsert: true });
-      if (error) throw error;
-      const { data } = supabase.storage
-        .from("image-workspace")
-        .getPublicUrl(path);
+const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file || !file.type.startsWith("image/")) return;
+  
+  setIsUploading(true);
+  try {
+    const ext = file.name.split(".").pop();
+    const filePath = `${userId}/${workspaceId ?? "new"}/${Date.now()}.${ext}`;
+    
+    const { error: uploadError } = await supabase.storage
+      .from("image-workspace")
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadError) throw uploadError;
+
+    const { data } = supabase.storage
+      .from("image-workspace")
+      .getPublicUrl(filePath);
+
+    if (data?.publicUrl) {
       setPendingImageUrl(data.publicUrl);
-    } catch {
-      // silent
-    } finally {
-      setIsUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
     }
-  };
+  } catch (err) {
+    console.error("Failed to upload image:", err);
+  } finally {
+    setIsUploading(false);
+    if (fileRef.current) fileRef.current.value = "";
+  }
+};
 
     const lastMsg = messages[messages.length - 1];
   const isStreamingAssistant = isImproving && lastMsg?.role === "assistant";
