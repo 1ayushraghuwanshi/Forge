@@ -1,16 +1,29 @@
 "use client";
 
-import React, { KeyboardEvent, useEffect, useRef, useState, useMemo } from "react";
-import { Message, StatusStep } from "@/types/workspace";
-import { BlueTitle } from "./resuable";
-import PricingModal from "./PricingModal";
-import { cn } from "@/lib/utils";
-import Image from "next/image";
-import { ArrowUp, Loader2, Paperclip, Sparkles, Square, Wand2, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useUser } from "@clerk/nextjs";
+import {
+  ArrowUp,
+  Paperclip,
+  Loader2,
+  X,
+  Sparkles,
+  Wand2,
+  Square,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
+import { Button } from "@/components/ui/button";
+import { PricingModal } from "@/components/PricingModal";
+import type { Message, StatusStep } from "@/types/workspace";
 import { createClient } from "@supabase/supabase-js";
+import { BlueTitle } from "./resuable";
+import Image from "next/image";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 interface ChatPanelProps {
   messages: Message[];
@@ -39,28 +52,21 @@ export function ChatPanel({
   workspaceId,
   appTitle,
 }: ChatPanelProps) {
-  // Correct hook instantiation inside component scope
-  const supabase = useMemo(
-    () =>
-      createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
-      ),
-    []
-  );
-
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { user } = useUser();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
   const [input, setInput] = useState("");
   const [pendingImageUrl, setPendingImageUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const hasAutoSubmittedRef = useRef(false);
 
+  const hasAutoSubmittedRef = useRef(false);
   const noCredits = credits <= 0;
-  const canSubmit =
-    input.trim().length > 0 && !isGenerating && !isImproving && !noCredits;
+
+  // The last message is the live-streaming assistant placeholder during improve
+  const lastMsg = messages[messages.length - 1];
+  const isStreamingAssistant = isImproving && lastMsg?.role === "assistant";
 
   // Auto-resize textarea
   useEffect(() => {
@@ -72,7 +78,7 @@ export function ChatPanel({
 
   // Auto-scroll on new messages or streaming updates
   useEffect(() => {
-    const el = scrollRef.current;
+    const el = scrollContainerRef.current;
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [messages, isGenerating, isImproving]);
@@ -103,44 +109,38 @@ export function ChatPanel({
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !file.type.startsWith("image/")) return;
-
     setIsUploading(true);
     try {
       const ext = file.name.split(".").pop();
-      const filePath = `${userId}/${workspaceId ?? "new"}/${Date.now()}.${ext}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("image-workspace")
-        .upload(filePath, file, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
+      const path = `${userId}/${workspaceId ?? "new"}/${Date.now()}.${ext}`;
+      const { error } = await supabase.storage
+        .from("workspace-images")
+        .upload(path, file, { upsert: true });
+      if (error) throw error;
       const { data } = supabase.storage
-        .from("image-workspace")
-        .getPublicUrl(filePath);
-
-      if (data?.publicUrl) {
-        setPendingImageUrl(data.publicUrl);
-      }
-    } catch (err) {
-      console.error("Failed to upload image:", err);
+        .from("workspace-images")
+        .getPublicUrl(path);
+      setPendingImageUrl(data.publicUrl);
+    } catch {
+      // silent
     } finally {
       setIsUploading(false);
       if (fileRef.current) fileRef.current.value = "";
     }
   };
 
-  const lastMsg = messages[messages.length - 1];
-  const isStreamingAssistant = isImproving && lastMsg?.role === "assistant";
+  const canSubmit =
+    input.trim().length > 0 && !isGenerating && !isImproving && !noCredits;
 
   return (
     <div className="flex w-[320px] shrink-0 flex-col bg-[#0d0d0d]">
+      {/* Header */}
       <div className="flex items-center justify-between border-b border-white/6 px-2 py-3">
         <BlueTitle>{appTitle}</BlueTitle>
         <PricingModal reason={noCredits ? "credits" : "upgrade"}>
           <span
             className={cn(
-              "rounded-full px-2 py-0.5 text-[11px] transition-colors cursor-pointer",
+              "rounded-full px-2 py-0.5 text-[11px] transition-colors",
               noCredits
                 ? "bg-red-500/15 text-red-400/80 hover:bg-red-500/25"
                 : "bg-white/6 text-white/30 hover:bg-white/10 hover:text-white/50"
@@ -153,8 +153,9 @@ export function ChatPanel({
         </PricingModal>
       </div>
 
+      {/* Messages */}
       <div
-        ref={scrollRef}
+        ref={scrollContainerRef}
         className="flex-1 overflow-y-auto px-3 py-4 [&::-webkit-scrollbar]:hidden"
       >
         {messages.length === 0 && !isGenerating && (
@@ -168,6 +169,7 @@ export function ChatPanel({
         <div className="space-y-4">
           {messages.map((msg, i) => {
             const isLast = i === messages.length - 1;
+            // This is the live-streaming assistant bubble during improve
             const isLiveStream = isLast && isStreamingAssistant;
 
             return (
@@ -179,11 +181,10 @@ export function ChatPanel({
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={msg.imageUrl}
-                          alt="uploaded content"
+                          alt="uploaded"
                           className="max-h-40 w-full rounded-lg object-cover"
                         />
                       )}
-
                       <div className="rounded-2xl rounded-br-sm bg-white/10 px-3.5 py-2.5">
                         <p className="text-[13px] leading-relaxed text-white/80 wrap-break-word">
                           {msg.content}
@@ -194,7 +195,7 @@ export function ChatPanel({
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={user.imageUrl}
-                        alt={user.fullName ?? "User"}
+                        alt={user.fullName ?? "You"}
                         className="mt-0.5 h-6 w-6 shrink-0 rounded-full"
                       />
                     ) : (
@@ -207,13 +208,14 @@ export function ChatPanel({
                   <div className="flex items-start gap-2">
                     <Image
                       src="/logo-short.jpeg"
-                      alt="Forge Logo"
+                      alt="Forge"
                       width={24}
                       height={24}
                       className="mt-0.5 h-6 w-6 shrink-0 rounded-md"
                     />
                     <div className="min-w-0 rounded-2xl rounded-tl-sm bg-white/5 px-3.5 py-2.5">
                       {isLiveStream && !msg.content ? (
+                        // Empty placeholder — show Cline thinking indicator
                         <div className="flex items-center gap-2">
                           <Wand2 className="h-3 w-3 shrink-0 text-blue-400/60 animate-pulse" />
                           <span className="text-[12px] text-white/30 animate-pulse">
@@ -221,6 +223,8 @@ export function ChatPanel({
                           </span>
                         </div>
                       ) : isLiveStream && msg.content ? (
+                        // Streaming thinking text — show raw (not markdown)
+                        // with a blinking cursor at the end
                         <div>
                           <div className="mb-1.5 flex items-center gap-1.5">
                             <Wand2 className="h-3 w-3 shrink-0 text-blue-400/60" />
@@ -234,6 +238,7 @@ export function ChatPanel({
                           </p>
                         </div>
                       ) : (
+                        // Normal completed assistant message
                         <div className="prose prose-sm prose-invert max-w-none wrap-break-word text-[13px] leading-relaxed text-white/70 [&_code]:rounded [&_code]:bg-white/10 [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-blue-300/80 [&_code]:text-xs [&_code]:break-all [&_li]:my-0.5 [&_p]:my-1 [&_pre]:overflow-x-auto! [&_pre]:whitespace-pre-wrap! [&_ul]:my-1">
                           <ReactMarkdown>{msg.content}</ReactMarkdown>
                         </div>
@@ -245,12 +250,12 @@ export function ChatPanel({
             );
           })}
 
-          {/* Status steps - shown while isGenerating */}
+          {/* Live status steps — only shown during normal generation */}
           {isGenerating && (
             <div className="flex items-start gap-2">
               <Image
                 src="/logo-short.jpeg"
-                alt="Forge Logo"
+                alt="Forge"
                 width={24}
                 height={24}
                 className="mt-0.5 h-6 w-6 shrink-0 rounded-md"
@@ -297,6 +302,7 @@ export function ChatPanel({
         </div>
       </div>
 
+      {/* No-credits upgrade banner */}
       {noCredits && (
         <div className="mx-3 mb-2 rounded-xl border border-red-500/15 bg-red-950/40 px-4 py-3">
           <p className="mb-2 text-[12px] font-medium text-red-400/80">
@@ -311,6 +317,7 @@ export function ChatPanel({
         </div>
       )}
 
+      {/* Input */}
       <div className="border-t border-white/6 p-3">
         {pendingImageUrl && (
           <div className="relative mb-2 w-fit">
@@ -328,6 +335,7 @@ export function ChatPanel({
             </button>
           </div>
         )}
+
         <div
           className={cn(
             "rounded-xl border bg-white/4 transition-colors",
@@ -357,6 +365,7 @@ export function ChatPanel({
             className="w-full resize-none bg-transparent px-3.5 pb-2 pt-3 text-[13px] text-white/80 placeholder:text-white/20 focus:outline-none"
             style={{ maxHeight: 160 }}
           />
+
           <div className="flex items-center justify-between px-2 pb-2">
             <Button
               variant="ghost"
@@ -380,7 +389,7 @@ export function ChatPanel({
               onChange={handleFileChange}
             />
 
-            {/* Stop button vs Send button */}
+            {/* Stop button — shown while generating or improving */}
             {isGenerating || isImproving ? (
               <Button
                 size="icon"
@@ -406,6 +415,7 @@ export function ChatPanel({
             )}
           </div>
         </div>
+
         <p className="mt-1.5 text-center text-[10px] text-white/15">
           {isGenerating || isImproving
             ? "Click ■ to stop generation"
@@ -415,5 +425,3 @@ export function ChatPanel({
     </div>
   );
 }
-
-//export default ChatPanel;
