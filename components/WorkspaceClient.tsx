@@ -34,13 +34,13 @@ function parseFileData(raw: unknown): FileData | null {
   return raw as FileData;
 }
 
-const WorkspaceClient = ({ 
+export function WorkspaceClient ({ 
   initialPrompt,
   workspace,
   userCredits,
   userId,
   userPlan,
-}: WorkspaceClientProps)=> {
+}: WorkspaceClientProps){
     const [workspaceId, setWorkspaceId] = useState<string | null>(workspace?.id ?? null);
     const [messages, setMessages] = useState<Message[]>(parseMessages(workspace?.messages),);
     const [credits, setCredits] = useState(userCredits)

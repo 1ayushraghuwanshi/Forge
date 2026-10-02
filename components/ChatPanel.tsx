@@ -14,7 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
-import { PricingModal } from "@/components/PricingModal";
+import  PricingModal  from "@/components/PricingModal";
 import type { Message, StatusStep } from "@/types/workspace";
 import { createClient } from "@supabase/supabase-js";
 import { BlueTitle } from "./resuable";
