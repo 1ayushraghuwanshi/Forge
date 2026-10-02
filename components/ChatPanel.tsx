@@ -14,7 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
-import  PricingModal  from "@/components/PricingModal";
+import { PricingModal } from "@/components/PricingModal";
 import type { Message, StatusStep } from "@/types/workspace";
 import { createClient } from "@supabase/supabase-js";
 import { BlueTitle } from "./resuable";
@@ -94,13 +94,9 @@ export function ChatPanel({
   const handleSubmit = async () => {
     const trimmed = input.trim();
     if (!trimmed || isGenerating || isImproving || noCredits) return;
-    const currentImageUrl = pendingImageUrl;
-    // ? `${trimmed}\n\n[Uploaded Reference Image URL: ${pendingImageUrl}. Please use this exact URL as the image source in the generated app code.]`
-    // : trimmed;
-   
     setInput("");
     setPendingImageUrl(null);
-    await onGenerate(trimmed, currentImageUrl ?? undefined);
+    await onGenerate(trimmed, pendingImageUrl ?? undefined);
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -118,15 +114,13 @@ export function ChatPanel({
       const ext = file.name.split(".").pop();
       const path = `${userId}/${workspaceId ?? "new"}/${Date.now()}.${ext}`;
       const { error } = await supabase.storage
-        .from("image-workspace")
+        .from("workspace-images")
         .upload(path, file, { upsert: true });
       if (error) throw error;
       const { data } = supabase.storage
-        .from("image-workspace")
+        .from("workspace-images")
         .getPublicUrl(path);
-      if (data?.publicUrl) {
       setPendingImageUrl(data.publicUrl);
-    }
     } catch {
       // silent
     } finally {

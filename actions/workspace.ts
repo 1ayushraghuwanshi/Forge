@@ -1,8 +1,13 @@
-import { db } from "@/lib/prisma";
-import { WorkspaceData, WorkspaceUser } from "@/types/workspace";
-import { auth } from "@clerk/nextjs/server";
+"use server";
 
+import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import { db } from "@/lib/prisma";
+import type { WorkspaceUser, WorkspaceData } from "@/types/workspace";
+
+export type { WorkspaceUser, WorkspaceData } from "@/types/workspace";
+
+// ─── Get the current authenticated user ──────────────────────────────────────
 
 export async function getWorkspaceUser(): Promise<WorkspaceUser> {
   const { userId: clerkId } = await auth();
@@ -18,6 +23,7 @@ export async function getWorkspaceUser(): Promise<WorkspaceUser> {
   return user;
 }
 
+// ─── Get a workspace by id (must belong to the current user) ─────────────────
 
 export async function getWorkspaceById(
   workspaceId: string,
@@ -34,6 +40,25 @@ export async function getWorkspaceById(
   });
 
   if (!workspace) redirect("/");
+
+  return workspace;
+}
+
+// ─── Export a workspace by id (must belong to the current user) ──────────────
+
+export async function exportWorkspace(
+  workspaceId: string,
+  userId: string
+): Promise<WorkspaceData | null> {
+  const workspace = await db.workspace.findUnique({
+    where: { id: workspaceId, userId },
+    select: {
+      id: true,
+      title: true,
+      messages: true,
+      fileData: true,
+    },
+  });
 
   return workspace;
 }
