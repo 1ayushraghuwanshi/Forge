@@ -94,9 +94,13 @@ export function ChatPanel({
   const handleSubmit = async () => {
     const trimmed = input.trim();
     if (!trimmed || isGenerating || isImproving || noCredits) return;
+    const fullPrompt = pendingImageUrl
+    ? `${trimmed}\n\n[Uploaded Reference Image URL: ${pendingImageUrl}. Please use this exact URL as the image source in the generated app code.]`
+    : trimmed;
+   
     setInput("");
     setPendingImageUrl(null);
-    await onGenerate(trimmed, pendingImageUrl ?? undefined);
+    await onGenerate(fullPrompt, pendingImageUrl ?? undefined);
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -120,7 +124,9 @@ export function ChatPanel({
       const { data } = supabase.storage
         .from("image-workspace")
         .getPublicUrl(path);
+      if (data?.publicUrl) {
       setPendingImageUrl(data.publicUrl);
+    }
     } catch {
       // silent
     } finally {
