@@ -94,13 +94,13 @@ export function ChatPanel({
   const handleSubmit = async () => {
     const trimmed = input.trim();
     if (!trimmed || isGenerating || isImproving || noCredits) return;
-    const fullPrompt = pendingImageUrl
-    ? `${trimmed}\n\n[Uploaded Reference Image URL: ${pendingImageUrl}. Please use this exact URL as the image source in the generated app code.]`
-    : trimmed;
+    const currentImageUrl = pendingImageUrl;
+    // ? `${trimmed}\n\n[Uploaded Reference Image URL: ${pendingImageUrl}. Please use this exact URL as the image source in the generated app code.]`
+    // : trimmed;
    
     setInput("");
     setPendingImageUrl(null);
-    await onGenerate(fullPrompt, pendingImageUrl ?? undefined);
+    await onGenerate(trimmed, currentImageUrl ?? undefined);
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {

@@ -22,17 +22,17 @@ function buildContents(messages: Message[], fileData: FileData | null){
 
         let text = msg.content;
 
-         if (msg.imageUrl) {
-        text = `[The user has attached an image. Use this URL directly in the generated app where relevant (as img src, background-image, etc.): ${msg.imageUrl}]\n\n${text}`;
-      }
+    if (msg.imageUrl) {
+  text = `[Uploaded Reference Image URL: ${msg.imageUrl}. Use this exact URL as the img src in the component.]\n\n${text}`;
+}
       const isLast = idx === trimmed.length - 1;
       if (isLast && fileData) {
         text +=
           "\n\nCurrent project files for context:\n" +
           JSON.stringify(fileData, null, 2);
       }
-       parts.push({ text });
-      return { role, parts };
+       //parts.push({ text });
+      return { role, parts: [{text}] };
     }
     
     return { role, parts: [{ text: msg.content }] };
@@ -64,7 +64,7 @@ RULES:
 7. Do not include react, react-dom, or tailwindcss in "dependencies" — they are always available.
 8. When modifying existing code, include ALL files (both changed and unchanged) in "files".
 9. Keep code clean, readable, and production-quality.
-10. If the user attaches an image, use it as a design reference and match the layout/style as closely as possible.`;
+10.IMAGE MANDATE: If an image URL or uploaded image reference is provided in the user prompt, you MUST use that EXACT URL as the src attribute in <img> tags or CSS background-image within the React components. Do NOT substitute it with placeholder images.`;
 
 function extractThoughtLabel(text: string): string | null {
   // Try to grab **bold heading** at the start
