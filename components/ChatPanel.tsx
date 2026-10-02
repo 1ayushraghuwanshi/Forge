@@ -114,11 +114,11 @@ export function ChatPanel({
       const ext = file.name.split(".").pop();
       const path = `${userId}/${workspaceId ?? "new"}/${Date.now()}.${ext}`;
       const { error } = await supabase.storage
-        .from("workspace-images")
+        .from("image-workspace")
         .upload(path, file, { upsert: true });
       if (error) throw error;
       const { data } = supabase.storage
-        .from("workspace-images")
+        .from("image-workspace")
         .getPublicUrl(path);
       setPendingImageUrl(data.publicUrl);
     } catch {
